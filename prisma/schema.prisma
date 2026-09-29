@@ -1,0 +1,26 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Generic source→target mapping for idempotent sync across integrations.
+model IntegrationMapping {
+  id        String   @id @default(uuid())
+  source    String
+  sourceId  String
+  target    String
+  targetId  String
+  readyFlag Boolean  @default(false)
+  status    String   @default("ACTIVE")
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([source, sourceId, target])
+  @@index([source, sourceId])
+  @@map("integration_mappings")
+}
