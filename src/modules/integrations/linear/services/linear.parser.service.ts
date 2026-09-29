@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { SyncIssueSnapshot } from '../../../common/types/integration.types';
-import { LinearWebhookPayload } from './linear.types';
+import { SyncIssueSnapshot } from '../../../../common/types/integration.types';
+import { LinearWebhookPayload } from '../types/linear.types';
 
 @Injectable()
 export class LinearParser {

@@ -1,33 +1,25 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { SyncIssueSnapshot } from '../../common/types/integration.types';
-import { SquashRequirementsService } from '../integrations/squash/squash.requirements';
-import { MappingsService } from '../mappings/mappings.service';
-
-export type SyncAction =
-  | 'ignored'
-  | 'created'
-  | 'updated'
-  | 'marked_not_ready';
-
-export interface SyncResult {
-  action: SyncAction;
-  reason?: string;
-  squashId?: string;
-  sourceId?: string;
-}
+import { SyncIssueSnapshot } from '../../../common/types/integration.types';
+import { SquashRequirementsService } from '../../integrations/squash/services/squash.requirements.service';
+import { MappingsRepository } from '../repositories/mappings.repository';
+import { SyncResult } from '../types/sync.types';
 
 @Injectable()
-export class LinearToSquashSync {
-  private readonly logger = new Logger(LinearToSquashSync.name);
+export class LinearSyncService {
+  private readonly logger = new Logger(LinearSyncService.name);
   private readonly target = 'squash' as const;
 
   constructor(
-    private readonly mappings: MappingsService,
+    private readonly mappings: MappingsRepository,
     private readonly squashReqs: SquashRequirementsService,
   ) {}
 
   async handle(issue: SyncIssueSnapshot): Promise<SyncResult> {
-    const mapping = await this.mappings.find(issue.source, issue.sourceId, this.target);
+    const mapping = await this.mappings.findBySourceTarget(
+      issue.source,
+      issue.sourceId,
+      this.target,
+    );
 
     if (issue.readyForTc) {
       if (!mapping) {
@@ -50,7 +42,7 @@ export class LinearToSquashSync {
       }
 
       await this.squashReqs.updateFromIssue(mapping.targetId, issue, false);
-      await this.mappings.markReady(mapping.id, {
+      await this.mappings.update(mapping.id, {
         readyFlag: true,
         status: 'ACTIVE',
         metadata: {
@@ -70,7 +62,7 @@ export class LinearToSquashSync {
 
     if (mapping) {
       await this.squashReqs.updateFromIssue(mapping.targetId, issue, true);
-      await this.mappings.markReady(mapping.id, {
+      await this.mappings.update(mapping.id, {
         readyFlag: false,
         status: 'NOT_READY',
         metadata: {

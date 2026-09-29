@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { HttpModule } from '@nestjs/axios';
-import { SquashClient } from './squash.client';
-import { SquashRequirementsService } from './squash.requirements';
+import { SquashClient } from './services/squash.client';
+import { SquashRequirementsService } from './services/squash.requirements.service';
 
 @Module({
   imports: [HttpModule],

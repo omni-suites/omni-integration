@@ -18,13 +18,10 @@ NestJS bridge for external tool sync. First connector: **Linear → Squash TM** 
 src/
   core/                 # Prisma, Config, health
   modules/
-    webhooks/           # HTTP edge
-    sync/               # use-cases (Linear→Squash)
-    mappings/           # DB idempotency
-    integrations/
-      linear/           # signature + parse
-      squash/           # REST client
-      _template/        # copy for next vendor
+    integrations/       # External API adapters
+      linear/           # Guards, Parser service, Types
+      squash/           # Client, Requirements service, Types
+    webhooks/           # Edge controller, Linear sync service, Mappings repo, Types
 ```
 
 ## Local run

@@ -8,7 +8,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { AxiosRequestConfig } from 'axios';
 import { firstValueFrom } from 'rxjs';
-import { SquashProject, SquashRequirement } from './squash.types';
+import { SquashProject, SquashRequirement } from '../types/squash.types';
 
 @Injectable()
 export class SquashClient implements OnModuleInit {

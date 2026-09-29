@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { SyncIssueSnapshot } from '../../../common/types/integration.types';
+import { SyncIssueSnapshot } from '../../../../common/types/integration.types';
 import { SquashClient } from './squash.client';
-import { SquashRequirement, SquashRequirementPayload } from './squash.types';
+import { SquashRequirement, SquashRequirementPayload } from '../types/squash.types';
 
 const NOT_READY_PREFIX = '[Not ready] ';
 

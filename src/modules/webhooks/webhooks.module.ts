@@ -1,10 +1,17 @@
 import { Module } from '@nestjs/common';
 import { IntegrationsModule } from '../integrations/integrations.module';
-import { SyncModule } from '../sync/sync.module';
-import { WebhooksController } from './webhooks.controller';
+import { PrismaService } from '../../core/config/prisma.service';
+import { WebhooksController } from './controllers/webhooks.controller';
+import { LinearSyncService } from './services/linear-sync.service';
+import { MappingsRepository } from './repositories/mappings.repository';
 
 @Module({
-  imports: [IntegrationsModule, SyncModule],
+  imports: [IntegrationsModule],
   controllers: [WebhooksController],
+  providers: [
+    PrismaService,
+    MappingsRepository,
+    LinearSyncService,
+  ],
 })
 export class WebhooksModule {}

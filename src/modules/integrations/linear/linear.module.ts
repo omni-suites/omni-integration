@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-import { LinearParser } from './linear.parser';
-import { LinearWebhookGuard } from './linear.webhook.guard';
+import { LinearParser } from './services/linear.parser.service';
+import { LinearWebhookGuard } from './guards/linear.webhook.guard';
 
 @Module({
   providers: [LinearParser, LinearWebhookGuard],

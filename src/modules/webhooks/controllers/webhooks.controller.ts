@@ -1,8 +1,8 @@
 import { Body, Controller, HttpCode, Logger, Post, UseGuards } from '@nestjs/common';
-import { LinearParser } from '../integrations/linear/linear.parser';
-import { LinearWebhookGuard } from '../integrations/linear/linear.webhook.guard';
-import type { LinearWebhookPayload } from '../integrations/linear/linear.types';
-import { LinearToSquashSync } from '../sync/linear-to-squash.sync';
+import { LinearParser } from '../../integrations/linear/services/linear.parser.service';
+import { LinearWebhookGuard } from '../../integrations/linear/guards/linear.webhook.guard';
+import type { LinearWebhookPayload } from '../../integrations/linear/types/linear.types';
+import { LinearSyncService } from '../services/linear-sync.service';
 
 @Controller('webhooks')
 export class WebhooksController {
@@ -10,14 +10,14 @@ export class WebhooksController {
 
   constructor(
     private readonly linearParser: LinearParser,
-    private readonly sync: LinearToSquashSync,
+    private readonly sync: LinearSyncService,
   ) {}
 
   @Post('linear')
   @HttpCode(200)
   @UseGuards(LinearWebhookGuard)
   async handleLinear(@Body() body: Record<string, unknown>) {
-    const payload = body as LinearWebhookPayload;
+    const payload = body as unknown as LinearWebhookPayload;
     this.logger.debug(
       `Linear webhook type=${payload.type} action=${payload.action}`,
     );
