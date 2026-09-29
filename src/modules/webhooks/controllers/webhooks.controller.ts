@@ -18,25 +18,34 @@ export class WebhooksController {
   @UseGuards(LinearWebhookGuard)
   async handleLinear(@Body() body: Record<string, unknown>) {
     const payload = body as unknown as LinearWebhookPayload;
-    this.logger.debug(
-      `Linear webhook type=${payload.type} action=${payload.action}`,
+    this.logger.log(
+      `Received Linear webhook: type=${payload?.type} action=${payload?.action}`,
     );
 
     const snapshot = this.linearParser.toSnapshot(payload);
     if (!snapshot) {
+      this.logger.warn(
+        `Ignored Linear webhook: unsupported payload shape (type=${payload?.type}, action=${payload?.action})`,
+      );
       return { ok: true, action: 'ignored', reason: 'unsupported payload shape' };
     }
 
-    if (!this.linearParser.matchesConfiguredProject(snapshot)) {
+    if (!this.linearParser.matchesConfiguredTeam(snapshot)) {
+      this.logger.log(
+        `Ignored Linear webhook for "${snapshot.identifier}": team "${snapshot.teamName || snapshot.teamKey || 'unknown'}" does not match configured filter`,
+      );
       return {
         ok: true,
         action: 'ignored',
-        reason: 'project filter mismatch',
+        reason: 'team filter mismatch',
         sourceId: snapshot.sourceId,
       };
     }
 
     const result = await this.sync.handle(snapshot);
+    this.logger.log(
+      `Completed Linear webhook for "${snapshot.identifier}": action=${result.action}${result.squashId ? ` (Squash ID: ${result.squashId})` : ''}`,
+    );
     return { ok: true, ...result };
   }
 }

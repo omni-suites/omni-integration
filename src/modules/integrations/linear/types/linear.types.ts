@@ -8,6 +8,8 @@ export interface LinearWebhookPayload {
     description?: string;
     url?: string;
     identifier?: string;
+    teamId?: string;
+    team?: { id?: string; name?: string; key?: string };
     projectId?: string;
     project?: { id?: string; name?: string };
     labels?: Array<{ id?: string; name: string }>;
@@ -17,6 +19,8 @@ export interface LinearWebhookPayload {
       description?: string;
       url?: string;
       identifier?: string;
+      teamId?: string;
+      team?: { id?: string; name?: string; key?: string };
       projectId?: string;
       project?: { id?: string; name?: string };
       labels?: Array<{ id?: string; name: string }>;

@@ -16,11 +16,14 @@ export class LinearParser {
    * Returns null when the payload is not an issue-shaped event we can sync.
    */
   toSnapshot(payload: LinearWebhookPayload): SyncIssueSnapshot | null {
+    // If it's an IssueLabel event without embedded issue, skip it (Linear sends companion Issue update)
+    if (payload.type === 'IssueLabel' && !payload.data?.issue) {
+      return null;
+    }
+
     const issue =
       payload.data?.issue ??
-      (payload.data?.id && (payload.type === 'Issue' || !payload.data?.issueId)
-        ? payload.data
-        : null);
+      (payload.type === 'Issue' ? payload.data : null);
 
     if (!issue?.id) {
       return null;
@@ -39,28 +42,38 @@ export class LinearParser {
       title: issue.title?.trim() || issue.identifier || issue.id,
       description: issue.description ?? '',
       url: issue.url ?? '',
-      projectId: issue.project?.id ?? issue.projectId,
-      projectName: issue.project?.name,
+      teamId: issue.team?.id ?? issue.teamId,
+      teamName: issue.team?.name,
+      teamKey: issue.team?.key,
       labelNames: labels,
       readyForTc,
     };
   }
 
-  matchesConfiguredProject(snapshot: SyncIssueSnapshot): boolean {
-    const projectId = this.config.get<string>('LINEAR_PROJECT_ID')?.trim();
-    const projectName = this.config.get<string>('LINEAR_PROJECT_NAME')?.trim();
+  matchesConfiguredTeam(snapshot: SyncIssueSnapshot): boolean {
+    const configuredTeamId = this.config.get<string>('LINEAR_TEAM_ID')?.trim();
+    const configuredTeamName = this.config.get<string>('LINEAR_TEAM_NAME')?.trim();
+    const configuredTeamKey = this.config.get<string>('LINEAR_TEAM_KEY')?.trim();
 
-    if (!projectId && !projectName) {
+    // If nothing configured, match all issues
+    if (!configuredTeamId && !configuredTeamName && !configuredTeamKey) {
       return true;
     }
 
-    if (projectId && snapshot.projectId === projectId) {
+    if (configuredTeamId && snapshot.teamId === configuredTeamId) {
       return true;
     }
 
     if (
-      projectName &&
-      snapshot.projectName?.toLowerCase() === projectName.toLowerCase()
+      configuredTeamName &&
+      snapshot.teamName?.toLowerCase() === configuredTeamName.toLowerCase()
+    ) {
+      return true;
+    }
+
+    if (
+      configuredTeamKey &&
+      snapshot.teamKey?.toLowerCase() === configuredTeamKey.toLowerCase()
     ) {
       return true;
     }

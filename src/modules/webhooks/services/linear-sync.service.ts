@@ -15,14 +15,29 @@ export class LinearSyncService {
   ) {}
 
   async handle(issue: SyncIssueSnapshot): Promise<SyncResult> {
+    this.logger.log(
+      `Processing issue ${issue.identifier} ("${issue.title}") | readyForTc=${issue.readyForTc}`,
+    );
+
     const mapping = await this.mappings.findBySourceTarget(
       issue.source,
       issue.sourceId,
       this.target,
     );
 
+    if (mapping) {
+      this.logger.debug(
+        `Found existing mapping: Linear ${issue.identifier} -> Squash ID ${mapping.targetId} (status: ${mapping.status})`,
+      );
+    } else {
+      this.logger.debug(`No existing mapping found for Linear ${issue.identifier}`);
+    }
+
     if (issue.readyForTc) {
       if (!mapping) {
+        this.logger.log(
+          `Creating new Squash requirement for Linear issue ${issue.identifier}...`,
+        );
         const created = await this.squashReqs.createFromIssue(issue);
         const squashId = String(created.id);
         await this.mappings.create({
@@ -37,10 +52,13 @@ export class LinearSyncService {
             url: issue.url,
           },
         });
-        this.logger.log(`Created Squash requirement ${squashId} for ${issue.identifier}`);
+        this.logger.log(`Created Squash requirement ID ${squashId} for ${issue.identifier}`);
         return { action: 'created', squashId, sourceId: issue.sourceId };
       }
 
+      this.logger.log(
+        `Updating existing Squash requirement ID ${mapping.targetId} for ${issue.identifier}...`,
+      );
       await this.squashReqs.updateFromIssue(mapping.targetId, issue, false);
       await this.mappings.update(mapping.id, {
         readyFlag: true,
@@ -51,7 +69,7 @@ export class LinearSyncService {
         },
       });
       this.logger.log(
-        `Updated Squash requirement ${mapping.targetId} for ${issue.identifier}`,
+        `Updated Squash requirement ID ${mapping.targetId} for ${issue.identifier}`,
       );
       return {
         action: 'updated',
@@ -61,6 +79,9 @@ export class LinearSyncService {
     }
 
     if (mapping) {
+      this.logger.log(
+        `Marking Squash requirement ID ${mapping.targetId} as NOT_READY (label removed for ${issue.identifier})...`,
+      );
       await this.squashReqs.updateFromIssue(mapping.targetId, issue, true);
       await this.mappings.update(mapping.id, {
         readyFlag: false,
@@ -71,7 +92,7 @@ export class LinearSyncService {
         },
       });
       this.logger.log(
-        `Marked Squash requirement ${mapping.targetId} NOT_READY for ${issue.identifier}`,
+        `Marked Squash requirement ID ${mapping.targetId} as NOT_READY for ${issue.identifier}`,
       );
       return {
         action: 'marked_not_ready',
@@ -80,6 +101,9 @@ export class LinearSyncService {
       };
     }
 
+    this.logger.log(
+      `Ignored issue ${issue.identifier}: no ready-for-tc label and no existing Squash mapping`,
+    );
     return {
       action: 'ignored',
       reason: 'no ready-for-tc label and no existing mapping',

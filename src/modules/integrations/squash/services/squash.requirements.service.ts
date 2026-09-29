@@ -1,7 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { SyncIssueSnapshot } from '../../../../common/types/integration.types';
 import { SquashClient } from './squash.client';
-import { SquashRequirement, SquashRequirementPayload } from '../types/squash.types';
+import {
+  SquashRequirement,
+  SquashRequirementPayload,
+  SquashRequirementUpdatePayload,
+} from '../types/squash.types';
 
 const NOT_READY_PREFIX = '[Not ready] ';
 
@@ -12,14 +16,13 @@ export class SquashRequirementsService {
   private buildDescription(issue: SyncIssueSnapshot, notReady = false): string {
     const parts = [
       issue.description?.trim() || '(no description)',
-      '',
       '---',
       `Linear: ${issue.identifier}`,
       issue.url ? `URL: ${issue.url}` : null,
       notReady ? 'Status: NOT READY (ready-for-tc label removed)' : 'Status: READY FOR TC',
     ].filter(Boolean);
 
-    return parts.join('\n');
+    return parts.map((line) => `<p>${line}</p>`).join('');
   }
 
   private buildName(issue: SyncIssueSnapshot, notReady = false): string {
@@ -31,10 +34,13 @@ export class SquashRequirementsService {
     const projectId = await this.client.resolveProjectId();
     const payload: SquashRequirementPayload = {
       _type: 'requirement',
-      name: this.buildName(issue, false),
-      description: this.buildDescription(issue, false),
-      reference: issue.identifier,
-      status: 'WORK_IN_PROGRESS',
+      current_version: {
+        _type: 'requirement-version',
+        name: this.buildName(issue, false),
+        description: this.buildDescription(issue, false),
+        reference: issue.identifier,
+        status: 'WORK_IN_PROGRESS',
+      },
       parent: {
         _type: 'project',
         id: projectId,
@@ -49,11 +55,14 @@ export class SquashRequirementsService {
     issue: SyncIssueSnapshot,
     notReady = false,
   ): Promise<SquashRequirement> {
-    const payload = {
+    const payload: SquashRequirementUpdatePayload = {
       _type: 'requirement',
-      name: this.buildName(issue, notReady),
-      description: this.buildDescription(issue, notReady),
-      reference: issue.identifier,
+      current_version: {
+        _type: 'requirement-version',
+        name: this.buildName(issue, notReady),
+        description: this.buildDescription(issue, notReady),
+        reference: issue.identifier,
+      },
     };
 
     return this.client.updateRequirement(squashId, payload);

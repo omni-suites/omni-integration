@@ -67,16 +67,18 @@ export class SquashClient implements OnModuleInit {
       validateStatus: () => true,
     };
 
+    this.logger.debug(`[Squash API] -> ${method} ${path}`);
     const response = await firstValueFrom(this.http.request<T>(config));
     if (response.status >= 400) {
       this.logger.error(
-        `Squash ${method} ${path} failed (${response.status}): ${JSON.stringify(response.data)}`,
+        `[Squash API] ${method} ${path} failed (${response.status}): ${JSON.stringify(response.data)}`,
       );
       throw new ServiceUnavailableException(
         `Squash API error ${response.status} on ${method} ${path}`,
       );
     }
 
+    this.logger.log(`[Squash API] ${method} ${path} -> ${response.status}`);
     return response.data;
   }
 
@@ -88,10 +90,12 @@ export class SquashClient implements OnModuleInit {
     const configuredId = this.config.get<string>('SQUASH_PROJECT_ID')?.trim();
     if (configuredId) {
       this.projectIdCache = Number(configuredId);
+      this.logger.log(`Using configured Squash project ID: ${this.projectIdCache}`);
       return this.projectIdCache;
     }
 
     const projectName = this.config.get<string>('SQUASH_PROJECT_NAME', 'omni-suites');
+    this.logger.log(`Resolving Squash project ID for project name "${projectName}"...`);
     const data = await this.request<{
       _embedded?: { projects?: SquashProject[] };
     }>('GET', '/api/rest/latest/projects?size=100');
@@ -108,6 +112,7 @@ export class SquashClient implements OnModuleInit {
     }
 
     this.projectIdCache = match.id;
+    this.logger.log(`Resolved Squash project "${projectName}" -> ID ${match.id}`);
     return match.id;
   }
 

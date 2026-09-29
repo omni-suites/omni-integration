@@ -10,6 +10,9 @@ export interface SyncIssueSnapshot {
   title: string;
   description: string;
   url: string;
+  teamId?: string;
+  teamName?: string;
+  teamKey?: string;
   projectId?: string;
   projectName?: string;
   labelNames: string[];

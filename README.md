@@ -5,7 +5,7 @@ NestJS bridge for external tool sync. First connector: **Linear → Squash TM** 
 ## What it does
 
 1. Receives Linear webhooks at `POST /webhooks/linear`
-2. Filters by `LINEAR_PROJECT_NAME` / `LINEAR_PROJECT_ID`
+2. Filters by `LINEAR_TEAM_NAME` / `LINEAR_TEAM_ID` (default `omni-suites`)
 3. When label `LINEAR_READY_LABEL` (default `ready-for-tc`) is present:
    - **no mapping** → create Squash requirement + save mapping
    - **mapping exists** → update Squash requirement
@@ -38,7 +38,7 @@ Webhook: `POST /webhooks/linear`
 
 ## Linear setup
 
-1. Create project matching `LINEAR_PROJECT_NAME` (e.g. `omni-suites`)
+1. Create team matching `LINEAR_TEAM_NAME` (e.g. `omni-suites`)
 2. Create label matching `LINEAR_READY_LABEL` (e.g. `ready-for-tc`)
 3. Webhook URL: `https://hooks.test-suites-poc.work.gd/webhooks/linear`
 4. Subscribe to **Issues** and **Issue Labels**; paste signing secret into `LINEAR_WEBHOOK_SECRET`
