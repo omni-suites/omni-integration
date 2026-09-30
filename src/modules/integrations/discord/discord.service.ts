@@ -10,29 +10,22 @@ export class DiscordService {
 
   constructor(private readonly configService: ConfigService) {
     this.publicKey = this.configService.get<string>('DISCORD_PUBLIC_KEY') || '';
-    this.logger.log(`DISCORD_PUBLIC_KEY loaded: ${this.publicKey ? `yes (${this.publicKey.length} chars)` : 'NO — EMPTY!'}`);
   }
 
   async verifyRequest(req: Request): Promise<boolean> {
     const signature = req.headers['x-signature-ed25519'] as string;
     const timestamp = req.headers['x-signature-timestamp'] as string;
-    
-    // In NestJS, rawBody is buffered if enabled in main.ts
     const rawBody = (req as any).rawBody;
 
-    this.logger.debug(`Verify check — sig: ${!!signature}, ts: ${!!timestamp}, rawBody: ${!!rawBody} (type: ${typeof rawBody}), pubKey length: ${this.publicKey.length}`);
-
     if (!signature || !timestamp || !rawBody) {
-      this.logger.warn(`Missing fields — sig: ${!!signature}, ts: ${!!timestamp}, rawBody: ${!!rawBody}`);
+      this.logger.warn('Missing signature headers or rawBody');
       return false;
     }
 
     try {
-      const result = await verifyKey(rawBody, signature, timestamp, this.publicKey);
-      this.logger.debug(`verifyKey result: ${result}`);
-      return result;
+      return await verifyKey(rawBody, signature, timestamp, this.publicKey);
     } catch (err) {
-      this.logger.error('Signature verification threw an error', err);
+      this.logger.error('Signature verification error', err);
       return false;
     }
   }
