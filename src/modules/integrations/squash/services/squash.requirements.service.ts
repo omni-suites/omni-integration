@@ -1,3 +1,4 @@
+import { marked } from 'marked';
 import { Injectable } from '@nestjs/common';
 import { SyncIssueSnapshot } from '../../../../common/types/integration.types';
 import { SquashClient } from './squash.client';
@@ -14,15 +15,23 @@ export class SquashRequirementsService {
   constructor(private readonly client: SquashClient) {}
 
   private buildDescription(issue: SyncIssueSnapshot, notReady = false): string {
-    const parts = [
-      issue.description?.trim() || '(no description)',
-      '---',
-      `Linear: ${issue.identifier}`,
-      issue.url ? `URL: ${issue.url}` : null,
-      notReady ? 'Status: NOT READY (ready-for-tc label removed)' : 'Status: READY FOR TC',
-    ].filter(Boolean);
+    const rawMarkdown = issue.description?.trim() || '(no description)';
+    const parsedHtml = marked.parse(rawMarkdown, { breaks: true, gfm: true }) as string;
 
-    return parts.map((line) => `<p>${line}</p>`).join('');
+    const footer = [
+      '<hr/>',
+      `<p><strong>Linear:</strong> ${issue.identifier}</p>`,
+      issue.url
+        ? `<p><strong>URL:</strong> <a href="${issue.url}" target="_blank" rel="noopener noreferrer">${issue.url}</a></p>`
+        : null,
+      notReady
+        ? '<p><strong>Status:</strong> <span style="color: #e53e3e; font-weight: bold;">NOT READY (ready-for-tc label removed)</span></p>'
+        : '<p><strong>Status:</strong> <span style="color: #38a169; font-weight: bold;">READY FOR TC</span></p>',
+    ]
+      .filter(Boolean)
+      .join('');
+
+    return `${parsedHtml}${footer}`;
   }
 
   private buildName(issue: SyncIssueSnapshot, notReady = false): string {
