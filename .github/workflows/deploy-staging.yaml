@@ -69,3 +69,18 @@ jobs:
           sudo docker compose -f docker-compose.yml pull omni-integration
           sudo docker compose -f docker-compose.yml up -d --no-deps omni-integration
           sudo docker image prune -f -a
+
+  # JOB 3: Trigger Central E2E Smoke Tests
+  trigger-smoke:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Post-Deploy Smoke in test-suites
+        env:
+          GH_TOKEN: ${{ secrets.TEST_SUITE_REPO_PAT }}
+        run: |
+          gh workflow run post-deploy-smoke.yml \
+            --repo omni-suites/test-suites \
+            --ref main \
+            -f test_env=staging \
+            -f trigger_service=omni-integration
