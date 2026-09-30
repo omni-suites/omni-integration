@@ -45,7 +45,6 @@ export class DiscordService {
   }
 
   // ─── Interaction Router ───────────────────────────────────────────────
-
   async handleInteraction(interaction: any): Promise<any> {
     // Discord Verification Ping
     if (interaction.type === InteractionType.PING) {
@@ -70,7 +69,6 @@ export class DiscordService {
   }
 
   // ─── /run-tests Handler ───────────────────────────────────────────────
-
   private handleRunTests(interaction: any): any {
     // Parse options from the interaction
     const options = interaction.data?.options || [];
@@ -108,7 +106,6 @@ export class DiscordService {
   }
 
   // ─── GitHub Actions Dispatch ──────────────────────────────────────────
-
   private async triggerGitHubWorkflow(
     suite: string,
     grep: string,
@@ -151,7 +148,6 @@ export class DiscordService {
   }
 
   // ─── Discord Follow-up: Edit Original Response ────────────────────────
-
   private async editOriginalResponse(interactionToken: string, content: string): Promise<void> {
     const url = `https://discord.com/api/v10/webhooks/${this.appId}/${interactionToken}/messages/@original`;
 
@@ -168,7 +164,6 @@ export class DiscordService {
   }
 
   // ─── Helpers ──────────────────────────────────────────────────────────
-
   private getOption(options: any[], name: string): string | undefined {
     return options.find((o: any) => o.name === name)?.value;
   }
