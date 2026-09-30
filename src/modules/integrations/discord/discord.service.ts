@@ -174,6 +174,8 @@ export class DiscordService {
     run_url?: string;
     ref?: string;
     sha?: string;
+    rp_launch?: string;
+    rp_project?: string;
     channel_id?: string;
   }): Promise<void> {
     const channelId = payload.channel_id || this.testReleasesChannelId;
@@ -219,7 +221,9 @@ export class DiscordService {
         },
         {
           name: 'ReportPortal',
-          value: '[Open Dashboard](https://reportportal.test-suites-poc.work.gd)',
+          value: payload.rp_launch 
+            ? `[View Launch ${payload.rp_launch}](https://report-portal.test-suites-poc.work.gd/ui/#${payload.rp_project || 'omni-suites'}/launches/all?filter.eq.name=${payload.rp_launch})`
+            : '[Open Dashboard](https://report-portal.test-suites-poc.work.gd)',
           inline: true,
         },
       ],
