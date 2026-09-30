@@ -96,8 +96,9 @@ DISCORD_PUBLIC_KEY=
 DISCORD_BOT_TOKEN=
 DISCORD_GUILD_ID=
 
-# GitHub PAT (fine-grained, actions:write on test-suites repo)
+# GitHub PAT (Classic token with repo and workflow scopes)
 DISCORD_GITHUB_PAT_TOKEN=
+
 ```
 
 | Variable | Description |
@@ -106,7 +107,7 @@ DISCORD_GITHUB_PAT_TOKEN=
 | `DISCORD_PUBLIC_KEY` | Public key used to verify incoming webhook signatures |
 | `DISCORD_BOT_TOKEN` | Bot token used to authenticate management scripts |
 | `DISCORD_GUILD_ID` | Discord Server ID (enables instant guild-scoped slash command registration) |
-| `DISCORD_GITHUB_PAT_TOKEN` | GitHub Fine-Grained Personal Access Token with `actions:write` on `omni-suites/test-suites` |
+| `DISCORD_GITHUB_PAT_TOKEN` | GitHub Classic Personal Access Token with `repo` and `workflow` scopes |
 
 ### 2. Discord Developer Portal Setup
 
@@ -131,13 +132,17 @@ DISCORD_GITHUB_PAT_TOKEN=
 
 ### 3. GitHub PAT Configuration
 
-1. In GitHub, go to **Settings** → **Developer Settings** → **Personal Access Tokens** → **Fine-grained tokens**.
-2. Click **Generate new token**:
-   - **Token name**: `omni-discord-trigger`
-   - **Resource owner**: `omni-suites`
-   - **Repository access**: *Only select repositories* → choose `omni-suites/test-suites`
-   - **Permissions**: Repository permissions → **Actions**: `Read and write`
-3. Generate and set the token in `DISCORD_GITHUB_PAT_TOKEN`.
+To trigger GitHub Actions workflows via `workflow_dispatch`, GitHub requires a token with the **`workflow`** and **`repo`** scopes. A **Classic Personal Access Token** is recommended to ensure reliable dispatch permissions across organization repositories:
+
+1. In GitHub, go to **Settings** → **Developer Settings** → **Personal Access Tokens** → **[Tokens (classic)](https://github.com/settings/tokens/new)**.
+2. Configure the token:
+   - **Note**: `omni-discord-trigger`
+   - **Expiration**: Select your preferred validity (e.g. 90 days or No expiration)
+   - **Select scopes**:
+     - [x] **`repo`** (Full control of private repositories)
+     - [x] **`workflow`** (Update and trigger GitHub Action workflows)
+3. Click **Generate token** and copy the secret (`ghp_...`).
+4. Set the token in `DISCORD_GITHUB_PAT_TOKEN` in your `.env` (and `/opt/omni-infra/apps/.env` on the VM).
 
 ### 4. Register Slash Commands
 
