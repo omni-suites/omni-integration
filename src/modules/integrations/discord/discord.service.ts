@@ -10,6 +10,7 @@ export class DiscordService {
   private readonly botToken: string;
   private readonly appId: string;
   private readonly githubToken: string;
+  private readonly testReleasesChannelId: string;
 
   // GitHub repo that hosts the e2e workflow
   private readonly GH_OWNER = 'omni-suites';
@@ -22,6 +23,7 @@ export class DiscordService {
     this.botToken = this.configService.get<string>('DISCORD_BOT_TOKEN') || '';
     this.appId = this.configService.get<string>('DISCORD_APPLICATION_ID') || '';
     this.githubToken = this.configService.get<string>('DISCORD_GITHUB_PAT_TOKEN') || '';
+    this.testReleasesChannelId = this.configService.get<string>('DISCORD_TEST_RELEASES_CHANNEL_ID') || '1554846127709487215';
   }
 
   // ─── Signature Verification ───────────────────────────────────────────
@@ -161,6 +163,89 @@ export class DiscordService {
       const body = await res.text();
       this.logger.error(`Failed to edit Discord message: ${res.status} ${body}`);
     }
+  }
+
+  // ─── Post Test Results to Discord Channel ──────────────────────────────
+  async publishTestResult(payload: {
+    suite?: string;
+    status?: string;
+    test_env?: string;
+    run_id?: string;
+    run_url?: string;
+    ref?: string;
+    sha?: string;
+    channel_id?: string;
+  }): Promise<void> {
+    const channelId = payload.channel_id || this.testReleasesChannelId;
+    if (!channelId) {
+      throw new Error('No target Discord channel ID configured for test results.');
+    }
+
+    const isSuccess = payload.status === 'success';
+    const statusIcon = isSuccess ? '✅' : '❌';
+    const statusText = isSuccess ? 'PASSED' : (payload.status?.toUpperCase() || 'FAILED');
+    const color = isSuccess ? 0x22c55e : 0xef4444; // Green or Red
+    const suiteName = (payload.suite || 'smoke').toUpperCase();
+
+    const embed = {
+      title: `${statusIcon} E2E Test Suite ${statusText} — ${suiteName}`,
+      color,
+      description: `Playwright test execution completed on **${payload.test_env || 'staging'}**.`,
+      fields: [
+        {
+          name: 'Suite',
+          value: `\`${payload.suite || 'smoke'}\``,
+          inline: true,
+        },
+        {
+          name: 'Environment',
+          value: `\`${payload.test_env || 'staging'}\``,
+          inline: true,
+        },
+        {
+          name: 'Status',
+          value: `**${statusText}**`,
+          inline: true,
+        },
+        {
+          name: 'Branch / Commit',
+          value: `\`${payload.ref || 'main'}\` (${payload.sha ? payload.sha.substring(0, 7) : 'latest'})`,
+          inline: true,
+        },
+        {
+          name: 'GitHub Run',
+          value: payload.run_url ? `[#${payload.run_id || 'run'}](${payload.run_url})` : `#${payload.run_id || 'N/A'}`,
+          inline: true,
+        },
+        {
+          name: 'ReportPortal',
+          value: '[Open Dashboard](https://reportportal.test-suites-poc.work.gd)',
+          inline: true,
+        },
+      ],
+      timestamp: new Date().toISOString(),
+      footer: {
+        text: 'Omni Test Automation Platform',
+      },
+    };
+
+    const url = `https://discord.com/api/v10/channels/${channelId}/messages`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bot ${this.botToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ embeds: [embed] }),
+    });
+
+    if (!res.ok) {
+      const body = await res.text();
+      this.logger.error(`Failed to post test results to Discord: ${res.status} ${body}`);
+      throw new Error(`Discord API responded ${res.status}: ${body}`);
+    }
+
+    this.logger.log(`Successfully published test results to Discord channel ${channelId}`);
   }
 
   // ─── Helpers ──────────────────────────────────────────────────────────

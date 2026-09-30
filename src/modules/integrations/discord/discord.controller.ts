@@ -27,4 +27,17 @@ export class DiscordController {
       return res.status(HttpStatus.INTERNAL_SERVER_ERROR).send('Internal Server Error');
     }
   }
+
+  @Post('test-results')
+  async handleTestResults(@Req() req: Request, @Res() res: Response) {
+    try {
+      this.logger.log(`Received test results notification for suite: ${req.body?.suite}, status: ${req.body?.status}`);
+      await this.discordService.publishTestResult(req.body);
+      return res.status(HttpStatus.OK).json({ ok: true });
+    } catch (error: any) {
+      this.logger.error('Error publishing test results to Discord', error);
+      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ error: error.message });
+    }
+  }
 }
+
