@@ -63,7 +63,7 @@ const commands = [
     options: [
       {
         name: 'scenario',
-        description: 'Scenario name(s) (e.g. checkout_flow, order_create, apply_discount, or all)',
+        description: 'Scenario name(s) (e.g. checkout_flow, order_create, inventory_deduct, or all)',
         type: 3, // STRING (free-form input field)
         required: true,
       },
