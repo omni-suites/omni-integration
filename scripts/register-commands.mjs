@@ -1,5 +1,5 @@
 /**
- * Register /run-tests slash command with Discord (guild-scoped, instant).
+ * Register /run-tests and /run-perf slash commands with Discord (guild-scoped, instant).
  *
  * Env vars required:
  *   DISCORD_APPLICATION_ID, DISCORD_BOT_TOKEN, DISCORD_GUILD_ID
@@ -53,6 +53,31 @@ const commands = [
           { name: '🚀 Staging', value: 'staging' },
           { name: '💻 Local',   value: 'local' },
         ],
+      },
+    ],
+  },
+  {
+    name: 'run-perf',
+    description: 'Trigger k6 performance test suite via GitHub Actions (Staging)',
+    type: 1, // CHAT_INPUT
+    options: [
+      {
+        name: 'scenario',
+        description: 'Scenario name(s) (e.g. checkout_flow, order_create, apply_discount, or all)',
+        type: 3, // STRING (free-form input field)
+        required: true,
+      },
+      {
+        name: 'vus',
+        description: 'Virtual Users override (e.g. 20)',
+        type: 3, // STRING
+        required: false,
+      },
+      {
+        name: 'duration',
+        description: 'Duration override (e.g. 30s, 1m)',
+        type: 3, // STRING
+        required: false,
       },
     ],
   },

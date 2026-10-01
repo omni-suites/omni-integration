@@ -12,18 +12,23 @@ export class DiscordService {
   private readonly githubToken: string;
   private readonly testReleasesChannelId: string;
 
-  // GitHub repo that hosts the e2e workflow
+  // GitHub repo configurations
   private readonly GH_OWNER = 'omni-suites';
   private readonly GH_REPO = 'test-suites';
   private readonly GH_WORKFLOW = 'e2e.yml';
   private readonly GH_REF = 'main';
+
+  // Performance testing repo config
+  private readonly GH_PERF_REPO = 'perf-suites';
+  private readonly GH_PERF_WORKFLOW = 'perf-on-demand.yml';
 
   constructor(private readonly configService: ConfigService) {
     this.publicKey = this.configService.get<string>('DISCORD_PUBLIC_KEY') || '';
     this.botToken = this.configService.get<string>('DISCORD_BOT_TOKEN') || '';
     this.appId = this.configService.get<string>('DISCORD_APPLICATION_ID') || '';
     this.githubToken = this.configService.get<string>('DISCORD_GITHUB_PAT_TOKEN') || '';
-    this.testReleasesChannelId = this.configService.get<string>('DISCORD_TEST_RELEASES_CHANNEL_ID') || '1554846127709487215';
+    this.testReleasesChannelId =
+      this.configService.get<string>('DISCORD_TEST_RELEASES_CHANNEL_ID') || '';
   }
 
   // ─── Signature Verification ───────────────────────────────────────────
@@ -61,6 +66,10 @@ export class DiscordService {
       if (commandName === 'run-tests') {
         return this.handleRunTests(interaction);
       }
+
+      if (commandName === 'run-perf') {
+        return this.handleRunPerf(interaction);
+      }
     }
 
     // Fallback
@@ -72,7 +81,6 @@ export class DiscordService {
 
   // ─── /run-tests Handler ───────────────────────────────────────────────
   private handleRunTests(interaction: any): any {
-    // Parse options from the interaction
     const options = interaction.data?.options || [];
     const suite = this.getOption(options, 'suite') || 'smoke';
     const grep = this.getOption(options, 'grep') || '';
@@ -80,18 +88,14 @@ export class DiscordService {
 
     this.logger.log(`/run-tests → suite=${suite}, grep=${grep}, test_env=${testEnv}`);
 
-    // Fire-and-forget: trigger GitHub Actions in the background
-    // We respond to Discord immediately (must reply within 3 seconds)
     this.triggerGitHubWorkflow(suite, grep, testEnv, interaction)
-      .then(() => this.logger.log('GitHub workflow dispatched successfully'))
+      .then(() => this.logger.log('GitHub e2e workflow dispatched successfully'))
       .catch((err) => {
         this.logger.error('Failed to dispatch GitHub workflow', err);
-        // Edit the original message to show the error
         this.editOriginalResponse(interaction.token, `❌ Failed to trigger workflow: ${err.message}`)
           .catch((e) => this.logger.error('Failed to edit error response', e));
       });
 
-    // Immediate response to Discord (within 3s deadline)
     const grepDisplay = grep ? `\n> **Grep:** \`${grep}\`` : '';
     return {
       type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
@@ -107,7 +111,40 @@ export class DiscordService {
     };
   }
 
-  // ─── GitHub Actions Dispatch ──────────────────────────────────────────
+  // ─── /run-perf Handler ───────────────────────────────────────────────
+  private handleRunPerf(interaction: any): any {
+    const options = interaction.data?.options || [];
+    const scenario = this.getOption(options, 'scenario') || 'all';
+    const vus = this.getOption(options, 'vus') || '';
+    const duration = this.getOption(options, 'duration') || '';
+
+    this.logger.log(`/run-perf → scenario=${scenario}, vus=${vus}, duration=${duration}`);
+
+    this.triggerPerfWorkflow(scenario, vus, duration, interaction)
+      .then(() => this.logger.log('GitHub perf workflow dispatched successfully'))
+      .catch((err) => {
+        this.logger.error('Failed to dispatch GitHub perf workflow', err);
+        this.editOriginalResponse(interaction.token, `❌ Failed to trigger performance workflow: ${err.message}`)
+          .catch((e) => this.logger.error('Failed to edit error response', e));
+      });
+
+    const vusDisplay = vus ? `\n> **VUs:** \`${vus}\`` : '';
+    const durationDisplay = duration ? `\n> **Duration:** \`${duration}\`` : '';
+
+    return {
+      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+      data: {
+        content: [
+          `⚡ **Triggering k6 Performance Test (Staging)**`,
+          `> **Scenario:** \`${scenario}\`${vusDisplay}${durationDisplay}`,
+          ``,
+          `⏳ Dispatching to GitHub Actions (${this.GH_PERF_REPO})...`,
+        ].join('\n'),
+      },
+    };
+  }
+
+  // ─── GitHub Actions Dispatch (E2E) ────────────────────────────────────
   private async triggerGitHubWorkflow(
     suite: string,
     grep: string,
@@ -134,12 +171,52 @@ export class DiscordService {
     });
 
     if (res.status === 204) {
-      // Success — edit the original Discord message to confirm
       const actionsUrl = `https://github.com/${this.GH_OWNER}/${this.GH_REPO}/actions/workflows/${this.GH_WORKFLOW}`;
       await this.editOriginalResponse(interaction.token, [
         `✅ **E2E Tests Triggered!**`,
         `> **Suite:** \`${suite}\`${grep ? `\n> **Grep:** \`${grep}\`` : ''}`,
         `> **Environment:** \`${testEnv}\``,
+        ``,
+        `🔗 [View workflow runs](${actionsUrl})`,
+      ].join('\n'));
+    } else {
+      const body = await res.text();
+      throw new Error(`GitHub API responded ${res.status}: ${body}`);
+    }
+  }
+
+  // ─── GitHub Actions Dispatch (Performance) ────────────────────────────
+  private async triggerPerfWorkflow(
+    scenario: string,
+    vus: string,
+    duration: string,
+    interaction: any,
+  ): Promise<void> {
+    const url = `https://api.github.com/repos/${this.GH_OWNER}/${this.GH_PERF_REPO}/actions/workflows/${this.GH_PERF_WORKFLOW}/dispatches`;
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/vnd.github+json',
+        Authorization: `Bearer ${this.githubToken}`,
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
+      body: JSON.stringify({
+        ref: this.GH_REF,
+        inputs: {
+          scenario,
+          vus,
+          duration,
+        },
+      }),
+    });
+
+    if (res.status === 204) {
+      const actionsUrl = `https://github.com/${this.GH_OWNER}/${this.GH_PERF_REPO}/actions/workflows/${this.GH_PERF_WORKFLOW}`;
+      await this.editOriginalResponse(interaction.token, [
+        `✅ **Performance Test Triggered!**`,
+        `> **Scenario:** \`${scenario}\``,
+        `> **Environment:** \`staging\`${vus ? `\n> **VUs:** \`${vus}\`` : ''}${duration ? `\n> **Duration:** \`${duration}\`` : ''}`,
         ``,
         `🔗 [View workflow runs](${actionsUrl})`,
       ].join('\n'));
@@ -167,6 +244,7 @@ export class DiscordService {
 
   // ─── Post Test Results to Discord Channel ──────────────────────────────
   async publishTestResult(payload: {
+    type?: string;
     suite?: string;
     status?: string;
     test_env?: string;
@@ -177,6 +255,13 @@ export class DiscordService {
     rp_launch?: string;
     rp_project?: string;
     channel_id?: string;
+    vus?: string;
+    duration?: string;
+    metrics?: {
+      p95?: number | string;
+      total_requests?: number;
+      error_rate?: string | number;
+    };
   }): Promise<void> {
     const channelId = payload.channel_id || this.testReleasesChannelId;
     if (!channelId) {
@@ -187,8 +272,102 @@ export class DiscordService {
     const statusIcon = isSuccess ? '✅' : '❌';
     const statusText = isSuccess ? 'PASSED' : (payload.status?.toUpperCase() || 'FAILED');
     const color = isSuccess ? 0x22c55e : 0xef4444; // Green or Red
-    const suiteName = (payload.suite || 'smoke').toUpperCase();
 
+    // ─── Performance Test Result Embed ────────────────────────────────────
+    if (payload.type === 'perf') {
+      const scenarioName = (payload.suite || 'ALL').toUpperCase();
+      const p95Text =
+        payload.metrics?.p95 !== undefined && payload.metrics?.p95 !== 'N/A'
+          ? `${payload.metrics.p95} ms`
+          : 'N/A';
+      const requestsText =
+        payload.metrics?.total_requests !== undefined ? `${payload.metrics.total_requests}` : 'N/A';
+      const errorRateText =
+        payload.metrics?.error_rate !== undefined ? `${payload.metrics.error_rate}%` : '0%';
+      const configText =
+        [payload.vus ? `${payload.vus} VUs` : null, payload.duration ? `${payload.duration}` : null]
+          .filter(Boolean)
+          .join(' · ') || 'Default Config';
+
+      const embed = {
+        title: `${statusIcon} Performance Test ${statusText} — ${scenarioName}`,
+        color,
+        description: `k6 performance execution completed on **${payload.test_env || 'staging'}**.`,
+        fields: [
+          {
+            name: 'Scenario',
+            value: `\`${payload.suite || 'all'}\``,
+            inline: true,
+          },
+          {
+            name: 'Environment',
+            value: `\`${payload.test_env || 'staging'}\``,
+            inline: true,
+          },
+          {
+            name: 'Status',
+            value: `**${statusText}**`,
+            inline: true,
+          },
+          {
+            name: 'P95 Latency',
+            value: `\`${p95Text}\``,
+            inline: true,
+          },
+          {
+            name: 'Total Requests',
+            value: `\`${requestsText}\``,
+            inline: true,
+          },
+          {
+            name: 'Error Rate',
+            value: `\`${errorRateText}\``,
+            inline: true,
+          },
+          {
+            name: 'Config',
+            value: `\`${configText}\``,
+            inline: true,
+          },
+          {
+            name: 'Branch / Commit',
+            value: `\`${payload.ref || 'main'}\` (${payload.sha ? payload.sha.substring(0, 7) : 'latest'})`,
+            inline: true,
+          },
+          {
+            name: 'GitHub Run',
+            value: payload.run_url ? `[#${payload.run_id || 'run'}](${payload.run_url})` : `#${payload.run_id || 'N/A'}`,
+            inline: true,
+          },
+        ],
+        timestamp: new Date().toISOString(),
+        footer: {
+          text: 'Omni Performance Platform (k6)',
+        },
+      };
+
+      const url = `https://discord.com/api/v10/channels/${channelId}/messages`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bot ${this.botToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ embeds: [embed] }),
+      });
+
+      if (!res.ok) {
+        const body = await res.text();
+        this.logger.error(`Failed to post performance results to Discord: ${res.status} ${body}`);
+        throw new Error(`Discord API responded ${res.status}: ${body}`);
+      }
+
+      this.logger.log(`Successfully published performance test results to Discord channel ${channelId}`);
+      return;
+    }
+
+    // ─── Standard E2E Test Result Embed ───────────────────────────────────
+    const suiteName = (payload.suite || 'smoke').toUpperCase();
     const embed = {
       title: `${statusIcon} E2E Test Suite ${statusText} — ${suiteName}`,
       color,
